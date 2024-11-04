@@ -1,6 +1,6 @@
 ---
 title: "Aide pour le rapport du projet"
-author: "C.Maugis-Rabusseau"
+author: "Paul Louka"
 institute : "INSA Toulouse / IMT"
 date: "`r Sys.Date()`"
 bibliography: "exbiblio.bib"
