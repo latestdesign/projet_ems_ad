@@ -1,0 +1,139 @@
+---
+title: "Gene Expression Analysis Project"
+author: "Group: Khadija, Kokou, Louka"
+date: "`r Sys.Date()`"
+output: 
+  pdf_document: default
+  html_document:
+    toc: true
+    toc_depth: 3
+---
+
+# Liens utiles
+- [projet](https://moodle.insa-toulouse.fr/course/view.php?id=1427#section-1)
+- [github](https://github.com/latestdesign/projet_ems_ad)
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(reticulate)
+library(tidyr)
+library(ggplot2)
+library(corrplot)
+library(FactoMineR)
+library(factoextra)
+library(gridExtra)
+library(pheatmap)
+```
+
+# Introduction
+
+This project analyzes gene expression data for a model plant, investigating the effects of three treatments (T1, T2, and T3) over six time points (1h, 2h, …, 6h) with two replicates. The aim is to perform exploratory data analysis, clustering, and predictive modeling to address specific research questions.
+
+# Data Loading
+
+```{r load-data, echo=TRUE}
+# Load necessary libraries
+library(tidyverse)
+
+# Load data from the provided .txt file
+data <- read.table("DataProjet4modIA-2425.txt", header = TRUE)
+head(data)
+```
+
+# Exploratory Data Analysis
+```{r eda, echo=TRUE}
+# Summary statistics
+summary(data)
+```
+
+```{r}
+corrplot(cor(data[ , -1]), method = "ellipse", type = "upper", tl.col = "black", tl.srt = 45)
+```
+
+# Principal Component Analysis
+```{r}
+pca_result <- PCA(data[ , -1], scale.unit = TRUE, graph = FALSE)
+pca_result$eig
+fviz_eig(pca_result, addlabels = TRUE)
+```
+
+# Show variables in lower dimensions
+```{r}
+fviz_pca_var(pca_result, dimensions = c(1, 2), col.var = "black")
+fviz_pca_var(pca_result, dimensions = c(1, 3), col.var = "black")
+```
+
+```{r eda-plot, echo=TRUE}
+pheatmap(as.matrix(data[ , -1]), scale = "row", main = "Gene Expression Heatmap")
+```
+
+# Correlation Analysis
+```{r}
+cor_data <- cor(data[ , -1])
+pheatmap(cor_data, main = "Correlation Matrix")
+```
+
+# Dimensionality Reduction and Clustering
+```{r}
+pca_result <- prcomp(data[ , -1], center = TRUE, scale. = TRUE)
+summary(pca_result)
+plot(pca_result$x[,1:2], col = as.factor(data$Treatment), pch = 19, main = "PCA Plot")
+```
+
+
+
+```{r}
+# Hierarchical clustering
+dist_data <- dist(data[ , -1])
+hc <- hclust(dist_data)
+plot(hc, main = "Dendrogram of Gene Clustering")
+
+# K-means clustering
+set.seed(123)
+kmeans_result <- kmeans(data[ , -1], centers = 3)
+```
+
+
+# Differential Expression Analysis
+```{r}
+# Define thresholds for over/under-expression
+over_expressed <- data[apply(data[ , -1], 1, max) > 1, ]
+under_expressed <- data[apply(data[ , -1], 1, min) < -1, ]
+
+# Display counts of over- and under-expressed genes
+cat("Number of over-expressed genes:", nrow(over_expressed), "\n")
+cat("Number of under-expressed genes:", nrow(under_expressed), "\n")
+```
+
+# Analysis of Replicate Differences
+```{r}
+# Example: using t-test for a sample gene between replicates in a specific condition
+replicate_diff <- t.test(data$T1_1h_R1, data$T1_1h_R2)
+replicate_diff
+
+# Perform similar tests for other time points and treatments as needed.
+```
+
+# Predictive Modeling
+```{r}
+# Example of linear model predicting 6h expression from 1h for treatment T1
+lm_model <- lm(T1_6h_R1 ~ T1_1h_R1, data = data)
+summary(lm_model)
+
+# Plot the prediction
+ggplot(data, aes(x = T1_1h_R1, y = T1_6h_R1)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "blue") +
+  labs(title = "Predicting 6h Expression from 1h for Treatment T1", x = "Expression at 1h", y = "Expression at 6h")
+```
+
+# T3 6h Over-Expression Prediction
+```{r}
+# Binary coding of over-expressed (1) and under-expressed (0) genes at T3 6h
+data$T3_6h_status <- ifelse(data$T3_6h_R1 > 1, 1, ifelse(data$T3_6h_R1 < -1, 0, NA))
+
+# Train logistic regression model
+model <- glm(T3_6h_status ~ T1_1h_R1 + T2_1h_R1 + T1_2h_R1 + T2_2h_R1, data = data, family = "binomial")
+summary(model)
+```
